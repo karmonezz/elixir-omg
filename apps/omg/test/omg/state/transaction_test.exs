@@ -30,6 +30,7 @@ defmodule OMG.State.TransactionTest do
 
   require Utxo
 
+  # TODO: dry wrt. Application.fetch_env!(:omg, :tx_types_modules)? Use `bimap` perhaps?
   @payment_marker 1
 
   @zero_address OMG.Eth.zero_address()

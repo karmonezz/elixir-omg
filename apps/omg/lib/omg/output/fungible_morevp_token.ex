@@ -47,7 +47,9 @@ defmodule OMG.Output.FungibleMoreVPToken do
 end
 
 defimpl OMG.Output.Protocol, for: OMG.Output.FungibleMoreVPToken do
+  alias OMG.Crypto
   alias OMG.Output.FungibleMoreVPToken
+  alias OMG.State.Transaction
   alias OMG.Utxo
 
   require Utxo
@@ -62,6 +64,20 @@ defimpl OMG.Output.Protocol, for: OMG.Output.FungibleMoreVPToken do
   def can_spend?(%FungibleMoreVPToken{owner: owner}, witness, _raw_tx) when is_binary(witness) do
     owner == witness
   end
+
+  # FIXME: here we could add checking of the exchange_addr versus the order signed by owner
+  def can_spend?(
+        %FungibleMoreVPToken{owner: owner},
+        {<<"output_type_is_deposit", payload_preimage::binary>> = preimage, exchange_addr},
+        %Transaction.Settlement{}
+      )
+      when is_binary(preimage) and is_binary(exchange_addr) and exchange_addr == binary_part(payload_preimage, 0, 20) do
+    owner == preimage |> Crypto.hash() |> binary_part(0, 20)
+  end
+
+  def can_spend?(%FungibleMoreVPToken{owner: owner}, {preimage, exchange_addr}, _)
+      when is_binary(preimage) and is_binary(exchange_addr),
+      do: false
 
   def input_pointer(%FungibleMoreVPToken{}, blknum, tx_index, oindex, _, _),
     do: Utxo.position(blknum, tx_index, oindex)

@@ -44,6 +44,10 @@ defmodule OMG.TypedDataHash do
     Crypto.hash(@eip_191_prefix <> domain_separator <> hash_transaction(raw_tx))
   end
 
+  # FIXME: is this the right way?
+  # FIXME: fixme2: implement structural hash for these txs?
+  def hash_struct(%Transaction.Settlement{} = raw_tx, nil), do: Transaction.raw_txhash(raw_tx)
+
   @spec hash_transaction(Transaction.Payment.t()) :: Crypto.hash_t()
   def hash_transaction(%Transaction.Payment{} = raw_tx) do
     __MODULE__.Tools.hash_transaction(

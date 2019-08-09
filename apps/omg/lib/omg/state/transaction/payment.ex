@@ -172,8 +172,8 @@ defimpl OMG.State.Transaction.Protocol, for: OMG.State.Transaction.Payment do
         metadata
       ]
 
-  def get_outputs(%Transaction.Payment{outputs: outputs}), do: outputs
-  def get_inputs(%Transaction.Payment{inputs: inputs}), do: inputs
+  def get_outputs(%{outputs: outputs}), do: outputs
+  def get_inputs(%{inputs: inputs}), do: inputs
 
   @doc """
   True if the witnessses provided follow some extra custom validation.
@@ -192,9 +192,8 @@ defimpl OMG.State.Transaction.Protocol, for: OMG.State.Transaction.Payment do
 
   Returns the fees that this transaction is paying, mapped by currency
   """
-  # FIXME: detyped list of inputs - retype
-  @spec can_apply?(Transaction.Payment.t(), list(any())) :: {:ok, map()} | {:error, :amounts_do_not_add_up}
-  def can_apply?(%Transaction.Payment{} = tx, outputs_spent) do
+  @spec can_apply?(map(), list(Utxo.t())) :: {:ok, map()} | {:error, :amounts_do_not_add_up}
+  def can_apply?(tx, outputs_spent) do
     outputs = Transaction.get_outputs(tx)
 
     input_amounts_by_currency = get_amounts_by_currency(outputs_spent)

@@ -141,6 +141,8 @@ defmodule OMG.State.TransactionTest do
       assert decoded == @transaction |> Transaction.raw_txbytes() |> Transaction.decode!()
     end
 
+    # FIXME: tests for Transaction.Settlement malformedness should be added somewhere here. The test here is for payment
+
     @tag fixtures: [:alice]
     test "decoding malformed signed payment transaction", %{alice: alice} do
       %Transaction.Signed{sigs: sigs} =

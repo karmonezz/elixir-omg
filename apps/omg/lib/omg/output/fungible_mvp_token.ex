@@ -12,17 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-defmodule OMG.Output.FungibleMoreVPToken do
+defmodule OMG.Output.FungibleMVPToken do
   @moduledoc """
   Representation of the payment transaction output of a fungible token `currency`
+
+  Different from the FungibleMoreVPToken by that, being an MVP output, it requires a confirmation signature to be spent
   """
+
   alias OMG.Crypto
-  defstruct [:owner, :currency, :amount]
+  defstruct [:owner, :currency, :amount, :confirmer]
 
   @type t :: %__MODULE__{
           owner: Crypto.address_t(),
           currency: Crypto.address_t(),
-          amount: non_neg_integer()
+          amount: non_neg_integer(),
+          confirmer: Crypto.address_t()
         }
 
   def from_db_value(%{owner: owner, currency: currency, amount: amount})
@@ -46,50 +50,36 @@ defmodule OMG.Output.FungibleMoreVPToken do
   defp parse_address(_), do: {:error, :malformed_address}
 end
 
-defimpl OMG.Output.Protocol, for: OMG.Output.FungibleMoreVPToken do
-  alias OMG.Crypto
-  alias OMG.Output.FungibleMoreVPToken
-  alias OMG.State.Transaction
+defimpl OMG.Output.Protocol, for: OMG.Output.FungibleMVPToken do
+  alias OMG.Output.FungibleMVPToken
   alias OMG.Utxo
 
   require Utxo
 
-  @zero_address OMG.Eth.zero_address()
   # TODO: dry wrt. Application.fetch_env!(:omg, :output_types_modules)? Use `bimap` perhaps?
-  @output_type_marker <<1>>
+  @output_type_marker <<2>>
 
   @doc """
   For payment outputs, a binary witness is assumed to be a signature equal to the payment's output owner
   """
-  def can_spend?(%FungibleMoreVPToken{owner: owner}, witness, _raw_tx) when is_binary(witness) do
-    owner == witness
+  def can_spend?(%FungibleMVPToken{owner: owner, confirmer: expected_confirmer}, {spender, confirmer}, _raw_tx)
+      when is_binary(spender) and is_binary(confirmer) do
+    owner == spender and expected_confirmer == confirmer
   end
 
-  # FIXME: here we could add checking of the exchange_addr versus the order signed by owner
-  def can_spend?(
-        %FungibleMoreVPToken{owner: owner},
-        {<<"output_type_is_deposit", payload_preimage::binary>> = preimage, exchange_addr},
-        %Transaction.Settlement{}
-      )
-      when is_binary(preimage) and is_binary(exchange_addr) and exchange_addr == binary_part(payload_preimage, 0, 20) do
-    owner == preimage |> Crypto.hash() |> binary_part(0, 20)
-  end
+  # TODO: you could have additional `can_spend/3` clauses here to cover for chaining from such outputs
 
-  def can_spend?(%FungibleMoreVPToken{}, {preimage, exchange_addr}, _)
-      when is_binary(preimage) and is_binary(exchange_addr),
-      do: false
+  def can_be_forgotten_from_utxo_set?(%FungibleMVPToken{amount: 0}), do: false
+  def can_be_forgotten_from_utxo_set?(%FungibleMVPToken{amount: _}), do: true
 
-  def input_pointer(%FungibleMoreVPToken{}, blknum, tx_index, oindex, _, _),
+  def input_pointer(%FungibleMVPToken{}, blknum, tx_index, oindex, _, _),
     do: Utxo.position(blknum, tx_index, oindex)
 
-  def to_db_value(%FungibleMoreVPToken{owner: owner, currency: currency, amount: amount})
-      when is_binary(owner) and is_binary(currency) and is_integer(amount) do
-    %{owner: owner, currency: currency, amount: amount, type: @output_type_marker}
+  def to_db_value(%FungibleMVPToken{owner: owner, currency: currency, amount: amount, confirmer: confirmer})
+      when is_binary(owner) and is_binary(currency) and is_integer(amount) and is_binary(confirmer) do
+    %{owner: owner, currency: currency, amount: amount, confirmer: confirmer, type: @output_type_marker}
   end
 
-  def get_data_for_rlp(%FungibleMoreVPToken{owner: owner, currency: currency, amount: amount}),
-    do: [owner, currency, amount]
-
-  def non_empty?(%FungibleMoreVPToken{owner: @zero_address, currency: @zero_address, amount: 0}), do: false
-  def non_empty?(%FungibleMoreVPToken{}), do: true
+  def get_data_for_rlp(%FungibleMVPToken{owner: owner, currency: currency, amount: amount, confirmer: confirmer}),
+    do: [owner, currency, amount, confirmer]
 end

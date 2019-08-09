@@ -81,7 +81,7 @@ defmodule OMG.State.ExchangeTest do
     |> success?
     |> Core.exec(
       settlement_recovered(
-        [{@blknum1, 0, 0, alice, alice, "alice_0"}, {@blknum1, 1, 0, exchange, bob, "bob_0"}],
+        [{@blknum1, 0, 0, alice, alice, "alice_0"}, {@blknum1, 1, 0, alice, bob, "bob_0"}],
         [{alice, @not_eth, 10}, {bob, @eth, 10}]
       ),
       :ignore
@@ -103,6 +103,25 @@ defmodule OMG.State.ExchangeTest do
       :ignore
     )
     |> fail?(:amounts_do_not_add_up)
+  end
+
+  test "can't spend from settlements without confirmsig",
+       %{alice: alice, bob: bob, exchange: exchange, deposited_state: state} do
+    state
+    |> Core.exec(fund_order_recovered([{1, 0, 0, alice}], [{exchange, @eth, 10}], "alice_0"), :ignore)
+    |> success?
+    |> Core.exec(fund_order_recovered([{2, 0, 0, bob}], [{exchange, @not_eth, 10}], "bob_0"), :ignore)
+    |> success?
+    |> Core.exec(
+      settlement_recovered(
+        [{@blknum1, 0, 0, exchange, alice, "alice_0"}, {@blknum1, 1, 0, exchange, bob, "bob_0"}],
+        [{alice, @not_eth, 10}, {bob, @eth, 10}]
+      ),
+      :ignore
+    )
+    |> success?
+    |> Core.exec(create_recovered([{@blknum1, 2, 0, alice}], [{alice, @not_eth, 10}]), :ignore)
+    |> fail?(:unauthorized_spent)
   end
 
   # FIXME: copy pasted from State.CoreTest - DRY?

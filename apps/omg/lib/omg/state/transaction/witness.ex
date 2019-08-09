@@ -31,6 +31,10 @@ defmodule OMG.State.Transaction.Witness do
     signature_length?(exchange_sig) and is_preimage?(preimage)
   end
 
+  def valid?(["mvp_witness", [spender_sig, confirmer_sig]]) when is_binary(spender_sig) and is_binary(confirmer_sig) do
+    signature_length?(spender_sig) and signature_length?(confirmer_sig)
+  end
+
   def valid?(witness) when is_binary(witness), do: signature_length?(witness)
   def valid?(_), do: false
 
@@ -42,6 +46,16 @@ defmodule OMG.State.Transaction.Witness do
 
     with {:ok, exchange_addr} <- Crypto.recover_address(raw_tx_hash, exchange_sig),
          do: {:ok, {preimage, exchange_addr}}
+  end
+
+  def recover(["mvp_witness", raw_witness], raw_tx_hash, _raw_tx) when is_list(raw_witness) do
+    [spender_sig, confirmer_sig] = raw_witness
+
+    with {:ok, spender_addr} <- Crypto.recover_address(raw_tx_hash, spender_sig),
+         # FIXME: confirmer must actully confirm something meaningful, but how do we recover here!?
+         #        Maybe one must recover statefully :( :( :(
+         {:ok, confirmer_addr} <- Crypto.recover_address(Crypto.hash("YOLO, I confirmed"), confirmer_sig),
+         do: {:ok, {spender_addr, confirmer_addr}}
   end
 
   def recover(raw_witness, raw_txhash, _raw_tx) when is_binary(raw_witness),

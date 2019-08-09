@@ -24,6 +24,8 @@ defmodule OMG.State.Transaction.Payment do
   alias OMG.State.Transaction
   alias OMG.Utxo
 
+  import __MODULE__.Tools
+
   require Transaction
   require Utxo
 
@@ -108,24 +110,9 @@ defmodule OMG.State.Transaction.Payment do
 
   def reconstruct(_), do: {:error, :malformed_transaction}
 
-  defp reconstruct_inputs(inputs_rlp) do
-    with {:ok, inputs} <- parse_inputs(inputs_rlp),
-         do: {:ok, inputs}
-  end
-
   defp reconstruct_outputs(outputs_rlp) do
     with {:ok, outputs} <- parse_outputs(outputs_rlp),
          do: {:ok, outputs}
-  end
-
-  defp reconstruct_metadata([]), do: {:ok, @zero_metadata}
-  defp reconstruct_metadata([metadata]) when Transaction.is_metadata(metadata), do: {:ok, metadata}
-  defp reconstruct_metadata([_]), do: {:error, :malformed_metadata}
-
-  defp parse_inputs(inputs_rlp) do
-    {:ok, Enum.map(inputs_rlp, &parse_input!/1)}
-  rescue
-    _ -> {:error, :malformed_inputs}
   end
 
   defp parse_outputs(outputs_rlp) do

@@ -43,10 +43,13 @@ defmodule OMG.ExchangeHelper do
           list({map, Transaction.currency(), pos_integer})
         ) :: Transaction.Signed.t()
   def settlement_signed(inputs, outputs) do
+    [exchange] = inputs |> Enum.map(fn {_, _, _, owner, _, _} -> owner.addr end) |> Enum.uniq()
+
     raw_tx =
       Transaction.Settlement.new(
         inputs |> Enum.map(fn {blknum, txindex, oindex, _, _, _} -> {blknum, txindex, oindex} end),
-        outputs |> Enum.map(fn {owner, currency, amount} -> {owner.addr, currency, amount} end)
+        outputs |> Enum.map(fn {owner, currency, amount} -> {owner.addr, currency, amount} end),
+        exchange
       )
 
     privs = get_settlement_private_keys(inputs)
@@ -62,6 +65,24 @@ defmodule OMG.ExchangeHelper do
 
     %Transaction.Signed{raw_tx: raw_tx, sigs: raw_witnesses}
   end
+
+  # FIXME: what with this?
+  # def post_settlement_recovered(inputs, outputs), do: create_encoded(inputs, outputs) |> Transaction.Recovered.recover_from!()
+  #
+  # def post_settlement_encoded(inputs, outputs) do
+  #   create_signed(inputs, outputs) |> Transaction.Signed.encode()
+  # end
+  #
+  # def post_settlement_signed(inputs, outputs) do
+  #   raw_tx =
+  #     Transaction.Payment.new(
+  #       inputs |> Enum.map(fn {blknum, txindex, oindex, _} -> {blknum, txindex, oindex} end),
+  #       outputs |> Enum.map(fn {owner, currency, amount} -> {owner.addr, currency, amount} end)
+  #     )
+  #
+  #   privs = get_private_keys(inputs)
+  #   DevCrypto.sign(raw_tx, privs)
+  # end
 
   # FIXME: this is made up
   defp output_preimage(exchange, order_placer, nonce),

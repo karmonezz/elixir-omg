@@ -8,7 +8,7 @@ config :omg,
   coordinator_eth_height_check_interval_ms: 6_000,
   metrics_collection_interval: 60_000,
   input_pointer_types_modules: %{<<1>> => OMG.InputPointer.UtxoPosition},
-  output_types_modules: %{<<1>> => OMG.Output.FungibleMoreVPToken},
+  output_types_modules: %{<<1>> => OMG.Output.FungibleMoreVPToken, <<2>> => OMG.Output.FungibleMVPToken},
   tx_types_modules: %{<<1>> => OMG.State.Transaction.Payment, <<2>> => OMG.State.Transaction.Settlement}
 
 config :omg, :eip_712_domain,

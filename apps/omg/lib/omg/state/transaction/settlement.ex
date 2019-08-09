@@ -14,8 +14,12 @@
 
 defmodule OMG.State.Transaction.Settlement do
   alias OMG.Crypto
+  alias OMG.Output.FungibleMoreVPToken
+  alias OMG.Output.FungibleMVPToken
   alias OMG.State.Transaction
   alias OMG.Utxo
+
+  import Transaction.Payment.Tools
 
   require Transaction
   require Utxo
@@ -81,26 +85,79 @@ defmodule OMG.State.Transaction.Settlement do
   @spec new(
           list({pos_integer, pos_integer, 0..3}),
           list({Crypto.address_t(), currency(), pos_integer}),
+          Crypto.address_t(),
           metadata()
         ) :: t()
-  def new(inputs, outputs, metadata \\ @default_metadata)
+  def new(inputs, outputs, confirmer, metadata \\ @default_metadata)
 
-  def new(inputs, outputs, metadata) do
+  def new(inputs, outputs, confirmer, metadata) do
     # TODO: steal from Payment and mold, because for now these are the same
-    tx_data = Transaction.Payment.new(inputs, outputs, metadata) |> Map.from_struct()
-
-    struct!(__MODULE__, tx_data)
+    Transaction.Payment.new(inputs, outputs, metadata) |> payment_to_settlement(confirmer)
   end
 
   @doc """
   Transaform the structure of RLP items after a successful RLP decode of a raw transaction, into a structure instance
   """
-  def reconstruct(rlp) do
-    # TODO: steal from Payment and mold, because for now these are the same
-    with {:ok, payment_struct} <- Transaction.Payment.reconstruct(rlp) do
-      tx_data = payment_struct |> Map.from_struct()
-      {:ok, struct!(__MODULE__, tx_data)}
-    end
+  def reconstruct([inputs_rlp, outputs_rlp | rest_rlp])
+      when rest_rlp == [] or length(rest_rlp) == 1 do
+    with {:ok, inputs} <- reconstruct_inputs(inputs_rlp),
+         {:ok, outputs} <- reconstruct_outputs(outputs_rlp),
+         {:ok, metadata} <- reconstruct_metadata(rest_rlp),
+         do: {:ok, %__MODULE__{inputs: inputs, outputs: outputs, metadata: metadata}}
+  end
+
+  def reconstruct(_), do: {:error, :malformed_transaction}
+
+  # FIXME: somewhat copy-pasted - can we do sth about this?
+
+  defp reconstruct_outputs(outputs_rlp) do
+    with {:ok, outputs} <- parse_outputs(outputs_rlp),
+         {:ok, outputs} <- outputs_without_gaps(outputs),
+         do: {:ok, filter_non_zero_outputs(outputs)}
+  end
+
+  defp parse_outputs(outputs_rlp) do
+    outputs = Enum.map(outputs_rlp, &parse_output!/1)
+
+    with nil <- Enum.find(outputs, &match?({:error, _}, &1)),
+         do: {:ok, outputs}
+  rescue
+    _ -> {:error, :malformed_outputs}
+  end
+
+  defp filter_non_zero_outputs(outputs),
+    do:
+      Enum.reject(
+        outputs,
+        &match?(%{owner: @zero_address, currency: @zero_address, amount: 0, confirmer: @zero_address}, &1)
+      )
+
+  defp parse_output!(output), do: FungibleMVPToken.reconstruct(output)
+
+  defp outputs_without_gaps({:error, _} = error), do: error
+
+  defp outputs_without_gaps(outputs),
+    do:
+      check_for_gaps(
+        outputs,
+        %FungibleMVPToken{owner: @zero_address, currency: @zero_address, amount: 0, confirmer: @zero_address},
+        {:error, :outputs_contain_gaps}
+      )
+
+  # FIXME end copy pasted code here, see fixme above
+
+  defp payment_to_settlement(%Transaction.Payment{} = payment_struct, confirmer) do
+    payment_struct
+    |> Map.from_struct()
+    |> Map.update!(:outputs, fn outputs -> Enum.map(outputs, &append_confirmer(&1, confirmer)) end)
+    |> (&struct!(__MODULE__, &1)).()
+  end
+
+  defp append_confirmer(%FungibleMoreVPToken{} = without_confirmer, confirmer) do
+    without_confirmer
+    |> Map.from_struct()
+    |> Map.put(:confirmer, confirmer)
+    |> (&struct!(FungibleMVPToken, &1)).()
   end
 end
 
@@ -112,15 +169,13 @@ defimpl OMG.State.Transaction.Protocol, for: OMG.State.Transaction.Settlement do
   require Utxo
   require Transaction.Settlement
 
-  @zero_address OMG.Eth.zero_address()
-
   # TODO: dry wrt. Application.fetch_env!(:omg, :tx_types_modules)? Use `bimap` perhaps?
   @settlement_marker <<2>>
 
   @doc """
   Turns a structure instance into a structure of RLP items, ready to be RLP encoded, for a raw transaction
   """
-  def get_data_for_rlp(%Transaction.Settlement{metadata: metadata} = tx) do
+  def get_data_for_rlp(%Transaction.Settlement{} = tx) do
     # TODO: steal from Payment and mold, because for now these are the same
     tx
     |> Transaction.Protocol.OMG.State.Transaction.Payment.get_data_for_rlp()
@@ -137,10 +192,9 @@ defimpl OMG.State.Transaction.Protocol, for: OMG.State.Transaction.Settlement do
     Transaction.Protocol.OMG.State.Transaction.Payment.get_inputs(tx)
   end
 
-  def valid?(%Transaction.Settlement{}, %Transaction.Signed{sigs: sigs} = tx) do
-    tx
-    |> Transaction.get_inputs()
-    |> all_inputs_witnessed?(sigs)
+  def valid?(%Transaction.Settlement{}, %Transaction.Signed{}) do
+    # so far we don't want any such checks
+    true
   end
 
   # FIXME spec out document
@@ -152,16 +206,5 @@ defimpl OMG.State.Transaction.Protocol, for: OMG.State.Transaction.Settlement do
   def get_effects(tx, blknum, tx_index) do
     # NOTE: for now behaves just like payment, subject to change
     Transaction.Protocol.OMG.State.Transaction.Payment.get_effects(tx, blknum, tx_index)
-  end
-
-  defp all_inputs_witnessed?(non_zero_inputs, sigs) do
-    count_non_zero_signatures = Enum.count(sigs, &(&1 != @empty_signature))
-    count_non_zero_inputs = length(non_zero_inputs)
-
-    cond do
-      count_non_zero_signatures > count_non_zero_inputs -> {:error, :superfluous_signature}
-      count_non_zero_signatures < count_non_zero_inputs -> {:error, :missing_signature}
-      true -> true
-    end
   end
 end

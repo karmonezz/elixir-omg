@@ -64,7 +64,24 @@ defimpl OMG.Output.Protocol, for: OMG.Output.FungibleMoreVPToken do
   end
 
   def input_pointer(%FungibleMoreVPToken{}, blknum, tx_index, oindex, _, _),
-    do: Utxo.position(blknum, tx_index, oindex)
+    inputs = [{blknum, tx_index, oindex}]
+
+    # FIXME: faux calculation of input pointers
+    #        copy pasted from payment.ex, this is the reason why it's wrapped in a list
+    alias OMG.Crypto
+    alias OMG.InputPointer
+
+    inputs
+    |> Enum.map(fn {blknum, txindex, oindex} -> Utxo.position(blknum, txindex, oindex) end)
+    |> Enum.map(&Utxo.Position.encode/1)
+    |> Enum.map(&Integer.to_string/1)
+    |> Enum.map(&Crypto.hash/1)
+    |> Enum.map(&binary_part(&1, 0, 18))
+    |> Enum.zip(inputs)
+    |> Enum.map(fn {faux_hash, {_, _, oindex}} -> faux_hash <> <<oindex::size(2)-unit(8)>> end)
+    |> Enum.map(fn output_id -> %InputPointer.OutputId{id: output_id} end)
+    |> hd()
+  end
 
   def to_db_value(%FungibleMoreVPToken{owner: owner, currency: currency, amount: amount})
       when is_binary(owner) and is_binary(currency) and is_integer(amount) do

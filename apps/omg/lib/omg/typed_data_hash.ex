@@ -20,6 +20,7 @@ defmodule OMG.TypedDataHash do
 
   alias OMG.Crypto
   alias OMG.State.Transaction
+  alias OMG.InputPointer
   alias OMG.Utxo
 
   require Utxo
@@ -27,7 +28,7 @@ defmodule OMG.TypedDataHash do
   @zero_address <<0::160>>
 
   # Precomputed hash of empty input for performance
-  @empty_input_hash __MODULE__.Tools.hash_input(Utxo.position(0, 0, 0))
+  @empty_input_hash __MODULE__.Tools.hash_input(%InputPointer.OutputId{id: <<0::size(32)-unit(8)>>})
 
   # Precomputed hash of empty output for performance
   @empty_output_hash __MODULE__.Tools.hash_output(%{owner: @zero_address, currency: @zero_address, amount: 0})

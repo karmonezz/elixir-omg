@@ -92,24 +92,31 @@ defmodule OMG.Watcher.ExitProcessor.InFlightExitInfo do
         }
 
   def new_kv(
-        %{eth_height: eth_height, call_data: %{in_flight_tx: tx_bytes, in_flight_tx_sigs: signatures}},
+        %{
+          eth_height: eth_height,
+          call_data: %{
+            in_flight_tx: tx_bytes,
+            in_flight_tx_sigs: signatures,
+            in_flight_input_utxo_positions: in_flight_input_utxo_positions
+          }
+        },
         {timestamp, contract_ife_id} = contract_status
       ) do
-    do_new(tx_bytes, signatures, contract_status,
+    do_new(tx_bytes, signatures, contract_status, in_flight_input_utxo_positions,
       contract_id: <<contract_ife_id::192>>,
       timestamp: timestamp,
       eth_height: eth_height
     )
   end
 
-  defp do_new(tx_bytes, tx_signatures, contract_status, fields) do
+  defp do_new(tx_bytes, tx_signatures, contract_status, in_flight_input_utxo_positions, fields) do
     with {:ok, tx} <- prepare_tx(tx_bytes, tx_signatures) do
       # NOTE: in case of using output_id as the input pointer, getting the youngest will be entirely different
       Utxo.position(youngest_input_blknum, _, _) =
-        tx
-        |> Transaction.get_inputs()
-        |> Enum.sort_by(&Utxo.Position.encode/1, &>=/2)
+        in_flight_input_utxo_positions
+        |> Enum.sort(&>=/2)
         |> hd()
+        |> Utxo.Position.decode!()
 
       fields =
         fields

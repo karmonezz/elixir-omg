@@ -7,7 +7,7 @@ config :omg,
   ethereum_events_check_interval_ms: 500,
   coordinator_eth_height_check_interval_ms: 6_000,
   metrics_collection_interval: 60_000,
-  input_pointer_types_modules: %{<<1>> => OMG.InputPointer.UtxoPosition},
+  input_pointer_types_modules: %{<<1>> => OMG.InputPointer.UtxoPosition, <<2>> => OMG.InputPointer.OutputId},
   output_types_modules: %{<<1>> => OMG.Output.FungibleMoreVPToken},
   tx_types_modules: %{<<1>> => OMG.State.Transaction.Payment}
 

@@ -19,6 +19,7 @@ defmodule OMG.TypedDataHash.Tools do
   """
 
   alias OMG.Crypto
+  alias OMG.InputPointer
   alias OMG.State.Transaction
   alias OMG.TypedDataHash.Types
   alias OMG.Utxo
@@ -101,17 +102,28 @@ defmodule OMG.TypedDataHash.Tools do
     |> Crypto.hash()
   end
 
-  @spec hash_input(Utxo.Position.t()) :: Crypto.hash_t()
-  def hash_input(Utxo.position(blknum, txindex, oindex)) do
+  # FIXME: shouldn't we put this code in the Protocol implemen
+  @spec hash_input(InputPointer.OutputId.t()) :: Crypto.hash_t()
+  def hash_input(%InputPointer.OutputId{id: id}) do
     [
       @input_type_hash,
-      ABI.TypeEncoder.encode_raw([blknum], [{:uint, 256}]),
-      ABI.TypeEncoder.encode_raw([txindex], [{:uint, 256}]),
-      ABI.TypeEncoder.encode_raw([oindex], [{:uint, 256}])
+      ABI.TypeEncoder.encode_raw([id], [{:bytes, 32}])
     ]
     |> Enum.join()
     |> Crypto.hash()
   end
+
+  # @spec hash_input(Utxo.Position.t()) :: Crypto.hash_t()
+  # def hash_input(Utxo.position(blknum, txindex, oindex)) do
+  #   [
+  #     @input_type_hash,
+  #     ABI.TypeEncoder.encode_raw([blknum], [{:uint, 256}]),
+  #     ABI.TypeEncoder.encode_raw([txindex], [{:uint, 256}]),
+  #     ABI.TypeEncoder.encode_raw([oindex], [{:uint, 256}])
+  #   ]
+  #   |> Enum.join()
+  #   |> Crypto.hash()
+  # end
 
   @spec hash_output(Transaction.Payment.output()) :: Crypto.hash_t()
   def hash_output(%{owner: owner, currency: currency, amount: amount}) do

@@ -84,8 +84,18 @@ defmodule OMG.State.Transaction.Payment do
   def new(inputs, outputs, metadata \\ @zero_metadata)
 
   def new(inputs, outputs, metadata)
-      when Transaction.is_metadata(metadata) and length(inputs) <= @max_inputs and length(outputs) <= @max_outputs do
-    inputs = Enum.map(inputs, fn {blknum, txindex, oindex} -> Utxo.position(blknum, txindex, oindex) end)
+      when is_metadata(metadata) and length(inputs) <= @max_inputs and length(outputs) <= @max_outputs do
+    inputs =
+      inputs
+      |> Enum.map(fn {blknum, txindex, oindex} -> Utxo.position(blknum, txindex, oindex) end)
+      # FIXME: faux calculation of input pointers
+      |> Enum.map(&Utxo.Position.encode/1)
+      |> Enum.map(&Integer.to_string/1)
+      |> Enum.map(&Crypto.hash/1)
+      |> Enum.map(&binary_part(&1, 0, 18))
+      |> Enum.zip(inputs)
+      |> Enum.map(fn {faux_hash, {_, _, oindex}} -> faux_hash <> <<oindex::size(2)-unit(8)>> end)
+      |> Enum.map(fn output_id -> %InputPointer.OutputId{id: output_id} end)
 
     outputs =
       Enum.map(outputs, fn {owner, currency, amount} ->
@@ -139,7 +149,7 @@ defmodule OMG.State.Transaction.Payment do
 
   # NOTE: we predetermine the input_pointer type, this is most likely not generic enough - rethink
   #       most likely one needs to route through generic InputPointer` function that does the dispatch
-  defp parse_input!(input_pointer), do: InputPointer.UtxoPosition.reconstruct(input_pointer)
+  defp parse_input!(input_pointer), do: InputPointer.OutputId.reconstruct(input_pointer)
 
   # NOTE: here we predetermine the type of the created output in the creating transaction
   #       I think this makes sense, but rethink later

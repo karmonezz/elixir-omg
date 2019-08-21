@@ -40,7 +40,8 @@ defmodule OMG.State.Transaction.Validator do
     inputs = Transaction.get_inputs(tx)
 
     with :ok <- validate_block_size(state),
-         :ok <- inputs_not_from_future_block?(state, inputs),
+         # FIXME: uncheckable with output_id or how do we do it?
+         # :ok <- inputs_not_from_future_block?(state, inputs),
          {:ok, outputs_spent} <- UtxoSet.get_by_inputs(utxos, inputs),
          {:ok, implicit_paid_fee_by_currency} <- Transaction.Recovered.can_apply?(tx, outputs_spent),
          true <- Fees.covered?(implicit_paid_fee_by_currency, fees) || {:error, :fees_not_covered} do

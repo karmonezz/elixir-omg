@@ -52,6 +52,7 @@ defimpl OMG.Output.Protocol, for: OMG.Output.FungibleMoreVPToken do
 
   require Utxo
 
+  @zero_address OMG.Eth.zero_address()
   # TODO: dry wrt. Application.fetch_env!(:omg, :output_types_modules)? Use `bimap` perhaps?
   @output_type_marker <<1>>
 
@@ -72,4 +73,7 @@ defimpl OMG.Output.Protocol, for: OMG.Output.FungibleMoreVPToken do
 
   def get_data_for_rlp(%FungibleMoreVPToken{owner: owner, currency: currency, amount: amount}),
     do: [owner, currency, amount]
+
+  def non_empty?(%FungibleMoreVPToken{owner: @zero_address, currency: @zero_address, amount: 0}), do: false
+  def non_empty?(%FungibleMoreVPToken{}), do: true
 end

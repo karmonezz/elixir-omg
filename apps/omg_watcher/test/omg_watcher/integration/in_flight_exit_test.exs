@@ -337,8 +337,15 @@ defmodule OMG.Watcher.Integration.InFlightExitTest do
     assert %{"in_flight_exits" => [], "byzantine_events" => []} = TestHelper.success?("/status.get")
   end
 
+  # 3 tests related to the fact, that we should do OMG-349 and take the `exoife` path (some might fail):
+  #
+  # TODO: Fails, see OMG-349. We should not activate here, because the chch would include the IFEd tx
+  #       See the next test case, which fails because of the lack of OMG-349 (`exoife` model therein)
+  #
+  #       Apart from delivering the behavior tested here, those test should be moved to a less integration-ey level
+  #       somehow.
   @tag fixtures: [:watcher, :alice, :bob, :child_chain, :token, :alice_deposits]
-  test "finalization of utxo not recognized in state leaves in-flight exit active",
+  test "finalization of utxo created by IFEing tx doesn't leave in-flight exit active, if IFE finalizes canonically",
        %{alice: alice, bob: bob, alice_deposits: {deposit_blknum, _}} do
     Eth.DevHelpers.import_unlock_fund(bob)
 
@@ -347,8 +354,50 @@ defmodule OMG.Watcher.Integration.InFlightExitTest do
     _ = exit_in_flight_and_wait_for_ife(tx, alice)
     _ = piggyback_and_process_exits(tx, 4 + 1, bob)
 
-    assert %{"in_flight_exits" => [_], "byzantine_events" => [_]} = TestHelper.success?("/status.get")
+    assert %{"in_flight_exits" => [], "byzantine_events" => []} = TestHelper.success?("/status.get")
   end
+
+  @tag fixtures: [:watcher, :alice, :bob, :child_chain, :token, :alice_deposits]
+  test "finalization of utxo created by IFEing tx leaves in-flight exit active, if IFE finalizes non-canonically",
+       %{alice: alice, bob: bob, alice_deposits: {deposit_blknum, _}} do
+    Eth.DevHelpers.import_unlock_fund(bob)
+
+    tx = OMG.TestHelper.create_signed([{deposit_blknum, 0, 0, alice}], @eth, [{alice, 5}, {bob, 5}])
+    ife1 = tx |> Transaction.Signed.encode() |> TestHelper.get_in_flight_exit()
+    competitor_tx = OMG.TestHelper.create_encoded([{deposit_blknum, 0, 0, alice}], @eth, [{alice, 5}])
+
+    %{"blknum" => blknum} = TestHelper.submit(competitor_tx)
+    IntegrationTest.wait_for_block_fetch(blknum, @timeout)
+
+    _ = exit_in_flight_and_wait_for_ife(ife1, alice)
+    _ = piggyback_and_process_exits(tx, 4 + 1, bob)
+
+    assert %{"in_flight_exits" => [_], "byzantine_events" => byzantine_events} = TestHelper.success?("/status.get")
+    [%{"event" => "non_canonical_ife"}] = Enum.filter(byzantine_events, &(&1["event"] != "piggyback_available"))
+  end
+
+  @tag fixtures: [:watcher, :alice, :bob, :child_chain, :token, :alice_deposits]
+  test "finalization of utxo created by IFEing tx leaves in-flight exit active, if piggybacked output was spent on",
+       %{alice: alice, bob: bob, alice_deposits: {deposit_blknum, _}} do
+    Eth.DevHelpers.import_unlock_fund(bob)
+
+    tx = OMG.TestHelper.create_signed([{deposit_blknum, 0, 0, alice}], @eth, [{alice, 5}, {bob, 5}])
+    ife1 = tx |> Transaction.Signed.encode() |> TestHelper.get_in_flight_exit()
+
+    %{"blknum" => blknum} = TestHelper.submit(tx |> Transaction.Signed.encode())
+    invalidating_tx = OMG.TestHelper.create_encoded([{blknum, 0, 0, alice}], @eth, [{alice, 5}])
+    %{"blknum" => invalidating_blknum} = TestHelper.submit(invalidating_tx)
+    IntegrationTest.wait_for_block_fetch(invalidating_blknum, @timeout)
+
+    _ = exit_in_flight_and_wait_for_ife(ife1, alice)
+    _ = piggyback_and_process_exits(tx, 4, alice)
+
+    assert %{"in_flight_exits" => [_], "byzantine_events" => byzantine_events} = TestHelper.success?("/status.get")
+    [%{"event" => "invalid_piggyback"}] = Enum.filter(byzantine_events, &(&1["event"] != "piggyback_available"))
+  end
+
+  ##
+  ## end 3 tests for required behaviors
 
   defp exit_in_flight(%Transaction.Signed{} = tx, exiting_user) do
     get_in_flight_exit_response = tx |> Transaction.Signed.encode() |> TestHelper.get_in_flight_exit()

@@ -37,6 +37,10 @@ defmodule OMG.Watcher.CoordinatorSetup do
         waits_for: [:depositor, :block_getter, :exit_processor],
         finality_margin: finality_margin
       ],
+      convenience_finalizer_processor: [
+        waits_for: [:convenience_exit_processor, :block_getter],
+        finality_margin: finality_margin
+      ],
       exit_challenger: [waits_for: :exit_processor, finality_margin: finality_margin],
       in_flight_exit_processor: [waits_for: :depositor, finality_margin: finality_margin],
       piggyback_processor: [waits_for: :in_flight_exit_processor, finality_margin: finality_margin],

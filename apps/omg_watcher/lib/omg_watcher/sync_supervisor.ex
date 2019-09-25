@@ -91,6 +91,17 @@ defmodule OMG.Watcher.SyncSupervisor do
         get_events_callback: &Eth.RootChain.get_finalizations/2,
         process_events_callback: &Watcher.ExitProcessor.finalize_exits/1
       ),
+      # this instance of the listener sends exits to be consumed by the convenience API
+      # we shouldn't use :exit_processor for this, as it has different waiting semantics (waits more)
+      EthereumEventListener.prepare_child(
+        service_name: :convenience_finalizer_processor,
+        synced_height_update_key: :last_convenience_finalizer_processor_eth_height,
+        get_events_callback: &Eth.RootChain.get_finalizations/2,
+        process_events_callback: fn finalizations ->
+          finalizations |> Watcher.DB.EthEvent.insert_finalizations!()
+          {:ok, []}
+        end
+      ),
       EthereumEventListener.prepare_child(
         service_name: :exit_challenger,
         synced_height_update_key: :last_exit_challenger_eth_height,

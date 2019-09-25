@@ -163,6 +163,28 @@ defmodule OMG.Watcher.DB.EthEvent do
     end
   end
 
+  @doc """
+  Uses a list of encoded `Utxo.Position`s to insert the finalizations (if not already inserted before)
+  """
+  @spec insert_finalizations!([non_neg_integer()]) :: :ok
+  def insert_finalizations!(finalizations) do
+    finalizations
+    |> IO.inspect(label: "finalizations")
+  end
+
+  @spec insert_finalization!(%{
+    root_chain_txhash: binary(),
+    log_index: non_neg_integer(),
+    decoded_utxo_position: Utxo.Position.t()
+  }) :: {:ok, %__MODULE__{}} | {:error, Ecto.Changeset.t()}
+  defp insert_finalization!(%{
+    root_chain_txhash: root_chain_txhash,
+    log_index: log_index,
+    decoded_utxo_position: decoded_utxo_position
+  }) do
+
+  end
+
   def txoutput_changeset(txoutput, params, ethevent) do
     fields = [:blknum, :txindex, :oindex, :owner, :amount, :currency, :child_chain_utxohash]
 

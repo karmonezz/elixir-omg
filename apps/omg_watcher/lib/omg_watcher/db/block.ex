@@ -26,6 +26,8 @@ defmodule OMG.Watcher.DB.Block do
     field(:hash, :binary)
     field(:eth_height, :integer)
     field(:timestamp, :integer)
+
+    timestamps(type: :utc_datetime_usec)
   end
 
   def get_max_blknum do

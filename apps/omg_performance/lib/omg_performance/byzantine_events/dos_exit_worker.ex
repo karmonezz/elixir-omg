@@ -22,15 +22,13 @@ defmodule OMG.Performance.ByzantineEvents.DoSExitWorker do
   @doc """
   Returns a worker function that fetches all exits data in random order
   """
-  def get_exits_fun(exit_positions, watcher_url) do
+  def get_exits(exit_positions, watcher_url) do
     worker = fn exit_positions ->
       Enum.map(exit_positions, &get_exit_data(&1, watcher_url))
     end
 
-    fn ->
-      exit_positions = Enum.shuffle(exit_positions)
-      :timer.tc(fn -> worker.(exit_positions) end)
-    end
+    exit_positions = Enum.shuffle(exit_positions)
+    :timer.tc(fn -> worker.(exit_positions) end)
   end
 
   defp get_exit_data(utxo_pos, watcher_url) do

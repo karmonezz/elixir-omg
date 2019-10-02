@@ -83,8 +83,9 @@ defmodule OMG.Eth.Librarian do
 
     # For some reason, solc returns this weird woes + a success message. The file is indeed resolved.
     # Let's just check the success thing here, instead of pattern matching against an empty stdout
+    # FIXME: revert solc path
     true =
-      ~c(solc #{contracts_dir}/#{name}Linked.bin --libraries \"#{libs_arg}\" --link)
+      ~c(~/Downloads/solc-static-linux #{contracts_dir}/#{name}Linked.bin --libraries \"#{libs_arg}\" --link)
       |> :os.cmd()
       |> to_string()
       |> String.contains?("Linking completed")

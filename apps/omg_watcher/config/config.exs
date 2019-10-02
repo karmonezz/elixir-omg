@@ -30,7 +30,8 @@ config :omg_watcher, OMG.Watcher.DB.Repo,
   # NOTE: not sure if appropriate, but this allows reasonable blocks to be written to unoptimized Postgres setup
   timeout: 60_000,
   connect_timeout: 60_000,
-  url: "postgres://omisego_dev:omisego_dev@localhost/omisego_dev"
+  url: "postgres://omisego_dev:omisego_dev@localhost/omisego_dev",
+  migration_timestamps: [type: :timestamptz]
 
 config :omg_watcher, OMG.Watcher.Tracer,
   service: :db,

@@ -28,15 +28,14 @@ defmodule OMG.WatcherRPC.Web.Controller.TransactionTest do
 
   @eth OMG.Eth.RootChain.eth_pseudo_address()
   @other_token <<127::160>>
-  @eth_hex @eth |> Encoding.to_hex()
-  @other_token_hex @other_token |> Encoding.to_hex()
+  @eth_hex Encoding.to_hex(@eth)
+  @other_token_hex Encoding.to_hex(@other_token)
   @default_data_paging %{"limit" => 200, "page" => 1}
 
   describe "getting transaction by id" do
     @tag fixtures: [:initial_blocks]
     test "verifies all inserted transactions available to get", %{initial_blocks: initial_blocks} do
-      initial_blocks
-      |> Enum.each(fn {blknum, txindex, txhash, _recovered_tx} ->
+      Enum.each(initial_blocks, fn {blknum, txindex, txhash, _recovered_tx} ->
         txhash_enc = Encoding.to_hex(txhash)
 
         assert %{"block" => %{"blknum" => ^blknum}, "txhash" => ^txhash_enc, "txindex" => ^txindex} =
@@ -1114,8 +1113,7 @@ defmodule OMG.WatcherRPC.Web.Controller.TransactionTest do
     defp balance_in_token(address, token) do
       currency = Encoding.to_hex(token)
 
-      TestHelper.get_balance(address)
-      |> Enum.find_value(0, fn
+      Enum.find_value(TestHelper.get_balance(address), 0, fn
         %{"currency" => ^currency, "amount" => amount} -> amount
         _ -> false
       end)

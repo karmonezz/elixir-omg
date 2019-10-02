@@ -232,7 +232,7 @@ defmodule OMG.Watcher.Fixtures do
   deffixture blocks_inserter(phoenix_ecto_sandbox) do
     :ok = phoenix_ecto_sandbox
 
-    fn blocks -> blocks |> Enum.flat_map(&prepare_one_block/1) end
+    fn blocks -> Enum.flat_map(blocks, &prepare_one_block/1) end
   end
 
   deffixture test_server do

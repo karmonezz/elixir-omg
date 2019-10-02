@@ -26,7 +26,9 @@ defmodule OMG.Utils.HttpRPC.ResponseTest do
     txbytes: nil,
     txhash: nil,
     txindex: nil,
-    metadata: nil
+    metadata: nil,
+    inserted_at: nil,
+    updated_at: nil
   }
 
   setup %{} do

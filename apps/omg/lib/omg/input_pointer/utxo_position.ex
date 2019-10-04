@@ -39,7 +39,7 @@ defimpl OMG.InputPointer.Protocol, for: Tuple do
   def to_db_key(Utxo.position(_, _, _) = utxo_pos),
     do: {:input_pointer, @input_pointer_type_marker, Utxo.Position.to_db_key(utxo_pos)}
 
-  @spec get_data_for_rlp(Utxo.Position.t()) :: list()
+  @spec get_data_for_rlp(Utxo.Position.t()) :: binary()
   def get_data_for_rlp(Utxo.position(_, _, _) = utxo_pos),
     do: utxo_pos |> Utxo.Position.encode() |> :binary.encode_unsigned(:big)
 end
